@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.SecureRandom;
@@ -14,25 +15,27 @@ import java.util.Arrays;
 import java.util.stream.IntStream;
 
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Mode;
 
 public class CrackingTheOyster {
     public static abstract class FileSorter {
         abstract void sort();
     }
 
-    public static class ObviousSolutionFileSorter extends FileSorter {
+    public static class MergeSortInPlaceSorter extends FileSorter {
 
         private final File file;
         private final int lineEndSize;
-        private long totalRecords;
+        private final long totalRecords;
+        private final byte[] readBuffer = new byte[7];
 
-        public ObviousSolutionFileSorter(File file) {
+        public MergeSortInPlaceSorter(File file) {
             this.file = file;
             try (var reader = new RandomAccessFile(file, "rw")) {
                 var lineEnds = new byte[2];
                 reader.seek(7);
                 reader.read(lineEnds, 0, 2);
-                System.out.println(new String(lineEnds));
                 if (lineEnds[0] == '\n' && lineEnds[1] >= '0' && lineEnds[1] <= '9') {
                     lineEndSize = 1;
                 } else if (lineEnds[0] == '\r' && lineEnds[1] == '\n') {
@@ -48,19 +51,6 @@ public class CrackingTheOyster {
             }
         }
 
-        private final byte[] readBuffer = new byte[7];
-
-        private int readValue(RandomAccessFile reader, long pos) throws IOException {
-            reader.seek(pos * (7 + lineEndSize));
-            reader.read(readBuffer, 0, 7);
-            return Integer.valueOf(new String(readBuffer));
-        }
-
-        private void writeValue(RandomAccessFile reader, long pos, int value) throws IOException {
-            reader.seek(pos * (7 + lineEndSize));
-            reader.write(String.format("%07d", value).getBytes());
-        }
-
         @Override
         void sort() {
             try (var reader = new RandomAccessFile(file, "rw")) {
@@ -68,6 +58,30 @@ public class CrackingTheOyster {
             } catch (IOException e) {
                 throw new IllegalStateException("Could not sort file!", e);
             }
+        }
+
+        private int readValue(RandomAccessFile reader, long pos) throws IOException {
+            reader.seek(pos * (7 + lineEndSize));
+            reader.read(readBuffer, 0, 7);
+            return readBuffer[6] - '0' +
+                    ((readBuffer[5] - '0') * 10) +
+                    ((readBuffer[4] - '0') * 100) +
+                    ((readBuffer[3] - '0') * 1000) +
+                    ((readBuffer[2] - '0') * 10000) +
+                    ((readBuffer[1] - '0') * 100000) +
+                    ((readBuffer[0] - '0') * 1000000);
+        }
+
+        private void writeValue(RandomAccessFile reader, long pos, int value) throws IOException {
+            reader.seek(pos * (7 + lineEndSize));
+            readBuffer[0] = (byte) ('0' + (value / 1000000));
+            readBuffer[1] = (byte) ('0' + ((value % 1000000) / 100000));
+            readBuffer[2] = (byte) ('0' + ((value % 100000) / 10000));
+            readBuffer[3] = (byte) ('0' + ((value % 10000) / 1000));
+            readBuffer[4] = (byte) ('0' + ((value % 1000) / 100));
+            readBuffer[5] = (byte) ('0' + ((value % 100) / 10));
+            readBuffer[6] = (byte) ('0' + (value % 10));
+            reader.write(readBuffer);
         }
 
         private void sort(RandomAccessFile reader, long start, long end) throws IOException {
@@ -122,44 +136,26 @@ public class CrackingTheOyster {
 
     }
 
-    @Benchmark
-    public void obviousSolutionFile1() throws IOException {
-        var originFile = Paths.get("resources", "cap01", "file-001.txt");
-        var outputFile = Files.createTempFile(null, null);
-        Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
-        var obviousSorter = new ObviousSolutionFileSorter(outputFile.toFile());
-        obviousSorter.sort();
-    }
-
-    
-
-    @Benchmark
-    public void obviousSolutionFile2() throws IOException {
-        var originFile = Paths.get("resources", "cap01", "file-002.txt");
-        var outputFile = Files.createTempFile(null, null);
-        Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
-        var obviousSorter = new ObviousSolutionFileSorter(outputFile.toFile());
-        obviousSorter.sort();
-    }
-
     public static void main(String[] args) throws IOException {
-        // generateFile();
-        var originFile = Paths.get("resources", "cap01", "file-000.txt");
-        var outputFile = Files.createTempFile(null, null);
-        Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
-        var obviousSorter = new ObviousSolutionFileSorter(outputFile.toFile());
-        obviousSorter.sort();
-        System.out.println("========= BEFORE =========");
-        Files.readAllLines(originFile).forEach(System.out::println);
-        System.out.println("========= AFTER  ========");
-        Files.readAllLines(outputFile).forEach(System.out::println);
+        generateFile(Paths.get("resources", "cap01"), 1, 10, "\r");
+        generateFile(Paths.get("resources", "cap01"), 2, 100, "\r");
+        generateFile(Paths.get("resources", "cap01"), 3, 10_00, "\r");
+        generateFile(Paths.get("resources", "cap01"), 4, 10_000, "\r");
+        // var originFile = Paths.get("resources", "cap01", "file-000.txt");
+        // var outputFile = Files.createTempFile(null, null);
+        // Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
+        // var obviousSorter = new ObviousSolutionFileSorter(outputFile.toFile());
+        // obviousSorter.sort();
+        // System.out.println("========= BEFORE =========");
+        // Files.readAllLines(originFile).forEach(System.out::println);
+        // System.out.println("========= AFTER ========");
+        // Files.readAllLines(outputFile).forEach(System.out::println);
     }
 
-    private static void generateFile() throws FileNotFoundException, UnsupportedEncodingException {
-        var index = 4;
-        var length = 200_000;
+    public static File generateFile(Path directory, int index, int length, String lineSeparator)
+            throws FileNotFoundException, UnsupportedEncodingException {
         var maxValue = 9_999_999;
-        var outputFile = Paths.get("resources", "cap01", String.format("file-%03d.txt", index)).toFile();
+        var outputFile = directory.resolve(String.format("file-%03d.txt", index)).toFile();
         if (outputFile.exists()) {
             outputFile.delete();
         }
@@ -176,8 +172,30 @@ public class CrackingTheOyster {
                             number = numberGenerator.nextInt(maxValue + 1);
                         }
                         usedNumbers[number] = true;
-                        writer.println(String.format("%07d", number));
+                        writer.print(String.format("%07d", number));
+                        writer.print(lineSeparator);
                     });
         }
+        return outputFile;
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    public void mergeSortInPlace10() throws IOException {
+        var originFile = Paths.get("resources", "cap01", "file-001.txt");
+        var outputFile = Files.createTempFile(null, null);
+        Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
+        var obviousSorter = new MergeSortInPlaceSorter(outputFile.toFile());
+        obviousSorter.sort();
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    public void mergeSortInPlace100() throws IOException {
+        var originFile = Paths.get("resources", "cap01", "file-002.txt");
+        var outputFile = Files.createTempFile(null, null);
+        Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
+        var obviousSorter = new MergeSortInPlaceSorter(outputFile.toFile());
+        obviousSorter.sort();
     }
 }
