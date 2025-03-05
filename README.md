@@ -18,7 +18,13 @@ Constraints: At most (roughly) a megabyte of storage is available in the main me
 
 1. Obvious: Merge Sort In-Place
    ```
-   CrackingTheOyster.mergeSortInPlace10   avgt   25  0.002 ±  0.001   s/op
-   CrackingTheOyster.mergeSortInPlace100  avgt   25  0.025 ±  0.003   s/op
+   Benchmark                              Mode  Cnt  Score    Error  Units
+   CrackingTheOyster.mergeSortInPlace10   avgt   25  0.003 ±  0.001   s/op
+   CrackingTheOyster.mergeSortInPlace100  avgt   25  0.032 ±  0.010   s/op
    ```
 2. Obvious: Merge Sorte with auxiliar file
+   ```
+   Benchmark                              Mode  Cnt  Score    Error  Units
+   CrackingTheOyster.mergeSort10          avgt   25  0.019 ±  0.004   s/op
+   CrackingTheOyster.mergeSort100         avgt   25  0.193 ±  0.020   s/op
+   ```
