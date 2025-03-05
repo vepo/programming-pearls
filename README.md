@@ -28,3 +28,9 @@ Constraints: At most (roughly) a megabyte of storage is available in the main me
    CrackingTheOyster.mergeSort10          avgt   25  0.019 ±  0.004   s/op
    CrackingTheOyster.mergeSort100         avgt   25  0.193 ±  0.020   s/op
    ```
+3. Optimal: Bitmap Sort
+   ```
+   Benchmark                              Mode  Cnt  Score   Error  Units
+   CrackingTheOyster.bitmapSort10         avgt   25  0.008 ± 0.002   s/op
+   CrackingTheOyster.bitmapSort100        avgt   25  0.010 ± 0.002   s/op
+   ```

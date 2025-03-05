@@ -146,9 +146,9 @@ public class CrackingTheOyster {
         }
     }
 
-    public static class MergeSortInPlaceSorter extends FileSorter {
+    public static class MergeSortInPlaceFileSorter extends FileSorter {
 
-        public MergeSortInPlaceSorter(File file) {
+        public MergeSortInPlaceFileSorter(File file) {
             super(file);
         }
 
@@ -204,6 +204,30 @@ public class CrackingTheOyster {
         }
     }
 
+    public static class BitmapFileSorter extends FileSorter {
+
+        public BitmapFileSorter(File file) {
+            super(file);
+        }
+
+        @Override
+        void sort() {
+            try (var reader = new RandomAccessFile(file, "rw")) {
+                var bitmap = new boolean[10_000_000];
+                for (long i = 0; i < totalRecords; i++) {
+                    bitmap[readValue(reader, i)] = true;
+                }
+                for (int i = 0, offset = 0; i < bitmap.length; i++) {
+                    if (bitmap[i]) {
+                        writeValue(reader, offset++, i);
+                    }
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException("Could not sort file!", e);
+            }
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         generateFile(Paths.get("resources", "cap01"), 1, 10, "\r");
         generateFile(Paths.get("resources", "cap01"), 2, 100, "\r");
@@ -253,7 +277,7 @@ public class CrackingTheOyster {
         var originFile = Paths.get("resources", "cap01", "file-001.txt");
         var outputFile = Files.createTempFile(null, null);
         Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
-        var obviousSorter = new MergeSortInPlaceSorter(outputFile.toFile());
+        var obviousSorter = new MergeSortInPlaceFileSorter(outputFile.toFile());
         obviousSorter.sort();
     }
 
@@ -263,10 +287,9 @@ public class CrackingTheOyster {
         var originFile = Paths.get("resources", "cap01", "file-002.txt");
         var outputFile = Files.createTempFile(null, null);
         Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
-        var obviousSorter = new MergeSortInPlaceSorter(outputFile.toFile());
+        var obviousSorter = new MergeSortInPlaceFileSorter(outputFile.toFile());
         obviousSorter.sort();
-    }
-    
+    }    
 
     @Benchmark    
     @BenchmarkMode(Mode.AverageTime)
@@ -285,6 +308,26 @@ public class CrackingTheOyster {
         var outputFile = Files.createTempFile(null, null);
         Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
         var obviousSorter = new MergeSortFileSorter(outputFile.toFile());
+        obviousSorter.sort();
+    }    
+
+    @Benchmark    
+    @BenchmarkMode(Mode.AverageTime)
+    public static void bitmapSort10() throws IOException {
+        var originFile = Paths.get("resources", "cap01", "file-001.txt");
+        var outputFile = Files.createTempFile(null, null);
+        Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
+        var obviousSorter = new BitmapFileSorter(outputFile.toFile());
+        obviousSorter.sort();
+    }
+
+    @Benchmark    
+    @BenchmarkMode(Mode.AverageTime)
+    public static void bitmapSort100() throws IOException {
+        var originFile = Paths.get("resources", "cap01", "file-002.txt");
+        var outputFile = Files.createTempFile(null, null);
+        Files.copy(originFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
+        var obviousSorter = new BitmapFileSorter(outputFile.toFile());
         obviousSorter.sort();
     }
 }
